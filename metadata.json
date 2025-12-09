@@ -1,0 +1,8 @@
+{
+  "name": "Gemini 手指贪吃蛇",
+  "description": "一款经典的贪吃蛇游戏，贪吃蛇会通过 Gemini Live Vision API 跟随你的手指移动。",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
