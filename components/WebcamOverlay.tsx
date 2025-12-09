@@ -25,16 +25,33 @@ export const WebcamOverlay: React.FC<WebcamOverlayProps> = ({
     // Initialize Camera
     const startCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { width: 320, height: 240 }, // Low res is fine for finger tracking
-            audio: false 
-        });
+        // Mobile-friendly constraints: use 'ideal' instead of exact values
+        // and specify facingMode for mobile devices.
+        const constraints = {
+            video: { 
+                facingMode: 'user', 
+                width: { ideal: 320 }, 
+                height: { ideal: 240 } 
+            },
+            audio: false
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          // Ensure video plays on iOS/Mobile
+          videoRef.current.play().catch(e => console.error("Video play error:", e));
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Camera error:", err);
-        onStatusChange("摄像头权限被拒绝。");
+        let msg = "摄像头启动失败。";
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            msg = "请允许访问摄像头以进行游戏。";
+        } else if (err.name === 'OverconstrainedError') {
+            msg = "摄像头不支持当前分辨率。";
+        }
+        onStatusChange(msg);
       }
     };
 
@@ -43,7 +60,7 @@ export const WebcamOverlay: React.FC<WebcamOverlayProps> = ({
     // Initialize Gemini Service
     const service = new GeminiLiveService({
       onFingerMove: (pos) => {
-        // Mirror X because webcam is usually mirrored
+        // Mirror X because webcam is usually mirrored for the user
         onFingerMove({ ...pos, x: 1 - pos.x });
       },
       onStatusChange,
@@ -71,7 +88,8 @@ export const WebcamOverlay: React.FC<WebcamOverlayProps> = ({
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         
-        if (video.readyState === video.HAVE_ENOUGH_DATA && ctx) {
+        // Ensure we have data
+        if (video.readyState >= 2 && ctx) { // HAVE_CURRENT_DATA or better
            canvas.width = video.videoWidth;
            canvas.height = video.videoHeight;
            ctx.drawImage(video, 0, 0);
@@ -92,7 +110,7 @@ export const WebcamOverlay: React.FC<WebcamOverlayProps> = ({
   }, [isGameActive]);
 
   return (
-    <div className="fixed bottom-4 right-4 w-48 h-36 border-2 border-slate-700 rounded-lg overflow-hidden bg-black z-10 shadow-lg">
+    <div className="fixed bottom-4 right-4 w-32 h-24 md:w-48 md:h-36 border-2 border-slate-700 rounded-lg overflow-hidden bg-black z-10 shadow-lg transition-all duration-300 opacity-80 hover:opacity-100">
       <video 
         ref={videoRef} 
         autoPlay 
@@ -101,7 +119,7 @@ export const WebcamOverlay: React.FC<WebcamOverlayProps> = ({
         className="w-full h-full object-cover transform -scale-x-100" // Mirror locally
       />
       <canvas ref={canvasRef} className="hidden" />
-      <div className="absolute top-0 left-0 bg-black/50 text-xs px-2 py-1 text-white">
+      <div className="absolute top-0 left-0 bg-black/50 text-[10px] md:text-xs px-2 py-1 text-white">
         摄像头画面
       </div>
     </div>
